@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firmador Electrónico K12/P12 · Ecuador</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2330;
+    --border: #30363d;
+    --accent: #2ea043;
+    --accent-glow: rgba(46,160,67,.18);
+    --accent2: #1f6feb;
+    --warn: #d29922;
+    --danger: #da3633;
+    --success: #2ea043;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -.3px;
+  }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* Layout */
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 28px;
+    width: fit-content;
+  }
+  .tab {
+    padding: 8px 20px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    border: none;
+    background: none;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active {
+    background: var(--accent2);
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(31,111,235,.4);
+  }
+
+  /* Panel */
+  .panel { display: none; animation: fadeIn .2s ease; }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  /* Form elements */
+  .form-row { margin-bottom: 16px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+
+  input[type="text"], input[type="password"], select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent2); }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.over {
+    border-color: var(--accent2);
+    background: rgba(31,111,235,.06);
+  }
+  .dropzone.has-file {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .dropzone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .dz-icon { font-size: 28px; margin-bottom: 8px; }
+  .dz-label { font-size: 13px; color: var(--muted); }
+  .dz-label strong { color: var(--text); }
+  .dz-file { margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--accent); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 20px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: var(--sans);
+  }
+  .btn-primary {
+    background: var(--accent2);
+    color: #fff;
+    border-color: rgba(255,255,255,.1);
+  }
+  .btn-primary:hover { filter: brightness(1.12); }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-success {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-success:hover { filter: brightness(1.1); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+  .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* Loader */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Result cards */
+  .result {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 16px;
+    border-left: 4px solid;
+    font-size: 13px;
+  }
+  .result.success { background: rgba(46,160,67,.1); border-color: var(--success); }
+  .result.error   { background: rgba(218,54,51,.1);  border-color: var(--danger); }
+  .result.warn    { background: rgba(210,153,34,.1);  border-color: var(--warn); }
+  .result.info    { background: rgba(31,111,235,.1); border-color: var(--accent2); }
+
+  /* Cert info grid */
+  .cert-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .cert-field {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .cert-field-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+  .cert-field-value { font-size: 13px; color: var(--text); font-family: var(--mono); word-break: break-all; }
+  .cert-field-value.green { color: var(--accent); }
+  .cert-field-value.red { color: var(--danger); }
+  .cert-field-value.warn { color: var(--warn); }
+
+  /* Sig info */
+  .sig-detail {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+    word-break: break-all;
+    line-height: 1.7;
+  }
+  .sig-detail strong { color: var(--text); font-weight: 600; }
+
+  /* Checks list */
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+  .check-dot.ok { background: var(--accent); }
+  .check-dot.fail { background: var(--danger); }
+  .check-dot.warn { background: var(--warn); }
+
+  /* Download button area */
+  .download-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+  }
+
+  /* Demo section */
+  .demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 700px) { .demo-grid { grid-template-columns: 1fr; } .cert-grid { grid-template-columns: 1fr 1fr; } }
+
+  .alert-demo {
+    background: rgba(210,153,34,.12);
+    border: 1px solid rgba(210,153,34,.4);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--warn);
+    margin-bottom: 16px;
+  }
+
+  /* Status badge */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .3px;
+  }
+  .status-pill.valid   { background: rgba(46,160,67,.2);  color: #3fb950; }
+  .status-pill.invalid { background: rgba(218,54,51,.2);  color: #f85149; }
+  .status-pill.warn    { background: rgba(210,153,34,.2); color: #e3b341; }
+
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  .hash-display {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 6px 10px;
+    border-radius: 4px;
+    word-break: break-all;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔐</div>
+    Firmador Electrónico Ecuador
+  </div>
+  <span class="badge">K12 / PKCS#12 · v1.0</span>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('certificado')">🪪 Certificado</button>
+    <button class="tab" onclick="switchTab('firmar')">✍️ Firmar</button>
+    <button class="tab" onclick="switchTab('verificar')">🔍 Verificar</button>
+    <button class="tab" onclick="switchTab('demo')">🧪 Demo</button>
+  </div>
+
+  <!-- ═══════════════ PANEL: CERTIFICADO ═══════════════ -->
+  <div id="panel-certificado" class="panel active">
+    <div class="card">
+      <div class="card-title">🪪 Leer Certificado P12 / K12</div>
+
+      <div class="form-row">
+        <label>Archivo de Certificado (.p12 / .pfx / .k12)</label>
+        <div class="dropzone" id="dz-cert" onclick="document.getElementById('inp-cert').click()">
+          <input type="file" id="inp-cert" accept=".p12,.pfx,.k12,.P12,.PFX" style="display:none" onchange="setFile('cert',this)">
+          <div class="dz-icon">📋</div>
+          <div class="dz-label"><strong>Haz clic</strong> o arrastra tu certificado aquí</div>
+          <div class="dz-label">Formatos: .p12 · .pfx · .k12</div>
+          <div class="dz-file" id="cert-fname"></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Contraseña del Certificado</label>
+        <input type="password" id="cert-pass" placeholder="Ingresa la contraseña del certificado">
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="leerCertificado()">
+          <span>Leer Certificado</span>
+        </button>
+      </div>
+
+      <div id="cert-result"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PANEL: FIRMAR ═══════════════ -->
+  <div id="panel-firmar" class="panel">
+    <div class="card">
+      <div class="card-title">✍️ Firmar Documento</div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="form-row">
+          <label>Certificado (.p12 / .pfx / .k12)</label>
+          <div class="dropzone" id="dz-fsign-cert" onclick="document.getElementById('inp-fsign-cert').click()">
+            <input type="file" id="inp-fsign-cert" accept=".p12,.pfx,.k12" style="display:none" onchange="setFile('fsign-cert',this)">
+            <div class="dz-icon">🔑</div>
+            <div class="dz-label"><strong>Certificado</strong></div>
+            <div class="dz-file" id="fsign-cert-fname"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Documento a Firmar</label>
+          <div class="dropzone" id="dz-fsign-doc" onclick="document.getElementById('inp-fsign-doc').click()">
+            <input type="file" id="inp-fsign-doc" style="display:none" onchange="setFile('fsign-doc',this)">
+            <div class="dz-icon">📄</div>
+            <div class="dz-label"><strong>Documento</strong></div>
+            <div class="dz-file" id="fsign-doc-fname"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="form-row">
+          <label>Contraseña del Certificado</label>
+          <input type="password" id="fsign-pass" placeholder="Contraseña P12">
+        </div>
+        <div class="form-row">
+          <label>Algoritmo de Hash</label>
+          <select id="fsign-alg">
+            <option value="SHA256">SHA-256 (recomendado)</option>
+            <option value="SHA384">SHA-384</option>
+            <option value="SHA512">SHA-512</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-success" onclick="firmarDoc()" id="btn-firmar">
+          <span>✍️ Firmar Documento</span>
+        </button>
+      </div>
+
+      <div id="sign-result"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PANEL: VERIFICAR ═══════════════ -->
+  <div id="panel-verificar" class="panel">
+    <div class="card">
+      <div class="card-title">🔍 Verificar Documento Firmado</div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="form-row">
+          <label>Documento Original</label>
+          <div class="dropzone" id="dz-ver-doc" onclick="document.getElementById('inp-ver-doc').click()">
+            <input type="file" id="inp-ver-doc" style="display:none" onchange="setFile('ver-doc',this)">
+            <div class="dz-icon">📄</div>
+            <div class="dz-label"><strong>Documento original</strong></div>
+            <div class="dz-file" id="ver-doc-fname"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Archivo de Firma (.firma.json)</label>
+          <div class="dropzone" id="dz-ver-sig" onclick="document.getElementById('inp-ver-sig').click()">
+            <input type="file" id="inp-ver-sig" accept=".json" style="display:none" onchange="setFile('ver-sig',this)">
+            <div class="dz-icon">🔏</div>
+            <div class="dz-label"><strong>Archivo de firma</strong></div>
+            <div class="dz-file" id="ver-sig-fname"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="verificarDoc()">
+          <span>🔍 Verificar Firma</span>
+        </button>
+      </div>
+
+      <div id="ver-result"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PANEL: DEMO ═══════════════ -->
+  <div id="panel-demo" class="panel">
+    <div class="card">
+      <div class="card-title">🧪 Generador de Certificado Demo</div>
+      <div class="alert-demo">
+        ⚠️ <strong>Solo para pruebas.</strong> Este certificado NO tiene validez legal.
+        Use su certificado real emitido por el BCE, Security Data, ANF AC o Uanataca.
+      </div>
+
+      <div class="demo-grid">
+        <div class="form-row">
+          <label>Nombre Completo</label>
+          <input type="text" id="demo-nombre" value="Juan Carlos Pérez López" placeholder="Nombre">
+        </div>
+        <div class="form-row">
+          <label>Organización</label>
+          <input type="text" id="demo-org" value="Empresa Demo S.A." placeholder="Empresa">
+        </div>
+        <div class="form-row">
+          <label>Contraseña P12</label>
+          <input type="text" id="demo-pass" value="prueba123" placeholder="Contraseña">
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="generarDemo()">⚡ Generar Certificado Demo</button>
+      </div>
+
+      <div id="demo-result"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📖 Sobre los Certificados K12 / P12</div>
+      <div style="line-height:1.8; color: var(--muted); font-size:13px;">
+        <p style="margin-bottom:10px;">
+          En Ecuador, el <strong style="color:var(--text)">certificado electrónico</strong> es un archivo en formato
+          <strong style="color:var(--accent2)">PKCS#12 (.p12 / .pfx)</strong> — coloquialmente llamado <em>K12</em> —
+          emitido por Entidades de Certificación acreditadas ante el MINTEL.
+        </p>
+        <p style="margin-bottom:10px;"><strong style="color:var(--text)">Entidades emisoras reconocidas:</strong></p>
+        <ul style="padding-left:20px; margin-bottom:10px;">
+          <li>Banco Central del Ecuador (BCE)</li>
+          <li>Security Data Seguridad en Datos y Firma Digital S.A.</li>
+          <li>ANF Autoridad de Certificación S.A.</li>
+          <li>Uanataca Ecuador</li>
+          <li>Corporación Nacional de Telecomunicaciones (CNT)</li>
+        </ul>
+        <p>
+          El archivo P12 contiene la <strong style="color:var(--text)">clave privada</strong> (protegida con contraseña)
+          y el <strong style="color:var(--text)">certificado X.509</strong> con los datos del titular verificados por la CA.
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Estado global ──
+const files = {};
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.closest('.tab').classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+function setFile(key, input) {
+  const f = input.files[0];
+  if (!f) return;
+  files[key] = f;
+  const el = document.getElementById(key + '-fname');
+  if (el) el.textContent = '📎 ' + f.name + ' (' + (f.size / 1024).toFixed(1) + ' KB)';
+  const dz = document.getElementById('dz-' + key);
+  if (dz) dz.classList.add('has-file');
+}
+
+function setLoading(btn, loading) {
+  if (loading) {
+    btn.dataset.origHtml = btn.innerHTML;
+    btn.innerHTML = '<div class="spinner"></div><span>Procesando...</span>';
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = btn.dataset.origHtml;
+    btn.disabled = false;
+  }
+}
+
+// ── Leer Certificado ──
+async function leerCertificado() {
+  const certFile = files['cert'];
+  const pass = document.getElementById('cert-pass').value;
+  const res = document.getElementById('cert-result');
+
+  if (!certFile) { res.innerHTML = '<div class="result error">❌ Selecciona un archivo de certificado</div>'; return; }
+
+  const btn = event.target.closest('.btn');
+  setLoading(btn, true);
+
+  const fd = new FormData();
+  fd.append('certificado', certFile);
+  fd.append('password', pass);
+
+  try {
+    const r = await fetch('/api/leer-certificado', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.error) { res.innerHTML = `<div class="result error">❌ ${data.error}</div>`; return; }
+
+    const c = data.certificado;
+    const statusClass = c.es_valido ? 'valid' : (c.estado === 'EXPIRADO' ? 'invalid' : 'warn');
+
+    res.innerHTML = `
+      <div class="result ${c.es_valido ? 'success' : 'error'}" style="margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="status-pill ${statusClass}">${c.estado}</span>
+          <strong>${c.titular || 'Sin nombre'}</strong>
+          ${c.es_valido ? `<span style="color:var(--muted);font-size:11px;">${c.dias_restantes} días restantes</span>` : ''}
+        </div>
+      </div>
+      <div class="cert-grid">
+        ${field('Titular', c.titular)}
+        ${field('Organización', c.organizacion)}
+        ${field('Unidad', c.unidad)}
+        ${field('País', c.pais)}
+        ${field('Provincia', c.provincia)}
+        ${field('Ciudad', c.ciudad)}
+        ${field('Email', c.email)}
+        ${field('Emisor', c.emisor)}
+        ${field('Org. Emisora', c.emisor_org)}
+        ${field('N° Serie', c.serie, 'mono')}
+        ${field('Válido desde', c.valido_desde)}
+        ${field('Válido hasta', c.valido_hasta, c.es_valido ? '' : 'red')}
+        ${field('Estado', c.estado, c.es_valido ? 'green' : 'red')}
+        ${field('Versión', c.version)}
+        ${field('Algoritmo', c.algoritmo, 'mono')}
+      </div>
+      ${c.huella_sha256 ? `
+        <div style="margin-top:12px;">
+          <div class="cert-field-label">Huella digital SHA-256</div>
+          <div class="hash-display">${c.huella_sha256}</div>
+        </div>` : ''}
+      ${c.key_usage && c.key_usage.length ? `
+        <div style="margin-top:12px;">
+          <div class="cert-field-label" style="margin-bottom:6px;">Usos de la clave</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${c.key_usage.map(u => `<span class="status-pill valid">${u}</span>`).join('')}
+          </div>
+        </div>` : ''}
+      ${data.cadena && data.cadena.length ? `
+        <hr class="divider">
+        <div class="cert-field-label" style="margin-bottom:8px;">Cadena de certificación</div>
+        ${data.cadena.map(ca => `<div style="font-size:12px;color:var(--muted);padding:4px 0;">🏛️ ${ca.cn} — ${ca.org}</div>`).join('')}` : ''}
+    `;
+  } catch(e) {
+    res.innerHTML = `<div class="result error">❌ Error de red: ${e.message}</div>`;
+  } finally { setLoading(btn, false); }
+}
+
+// ── Firmar Documento ──
+async function firmarDoc() {
+  const certFile = files['fsign-cert'];
+  const docFile  = files['fsign-doc'];
+  const pass = document.getElementById('fsign-pass').value;
+  const alg  = document.getElementById('fsign-alg').value;
+  const res  = document.getElementById('sign-result');
+
+  if (!certFile || !docFile) {
+    res.innerHTML = '<div class="result error">❌ Debes seleccionar el certificado y el documento</div>'; return;
+  }
+
+  const btn = document.getElementById('btn-firmar');
+  setLoading(btn, true);
+
+  const fd = new FormData();
+  fd.append('certificado', certFile);
+  fd.append('documento', docFile);
+  fd.append('password', pass);
+  fd.append('algoritmo', alg);
+
+  try {
+    const r = await fetch('/api/firmar', { method: 'POST', body: fd });
+    const data = await r.json();
+
+    if (data.error) {
+      res.innerHTML = `<div class="result error">❌ ${data.error}</div>`; return;
+    }
+
+    const pkg = data.paquete;
+    res.innerHTML = `
+      <div class="result success">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <span class="status-pill valid">✅ FIRMADO</span>
+          <strong>${data.firmante}</strong>
+          <span style="color:var(--muted);font-size:11px;">${new Date(data.fecha_firma).toLocaleString('es-EC')}</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);">${data.mensaje}</div>
+      </div>
+      <div class="download-area">
+        <span style="font-size:20px;">📥</span>
+        <div>
+          <div style="font-weight:600;font-size:13px;">${data.archivo_firma}</div>
+          <div style="font-size:11px;color:var(--muted);">Guarda este archivo junto al documento original para verificación</div>
+        </div>
+        <button class="btn btn-secondary" onclick="descargarFirma('${data.archivo_firma}')" style="margin-left:auto;">
+          Descargar .firma.json
+        </button>
+      </div>
+      <div class="sig-detail">
+        <strong>Algoritmo:</strong> ${data.algoritmo}<br>
+        <strong>Hash del documento:</strong> ${data.hash_documento}<br>
+        <strong>Fecha y hora:</strong> ${data.fecha_firma}<br>
+        <strong>Firma (base64 parcial):</strong> ${data.firma_base64}
+      </div>
+    `;
+
+    // Guardar paquete en sesión para facilitar verificación inmediata
+    window._lastSignPackage = pkg;
+    window._lastDocFile = docFile;
+
+  } catch(e) {
+    res.innerHTML = `<div class="result error">❌ Error: ${e.message}</div>`;
+  } finally { setLoading(btn, false); }
+}
+
+// ── Verificar Firma ──
+async function verificarDoc() {
+  const docFile = files['ver-doc'];
+  const sigFile = files['ver-sig'];
+  const res = document.getElementById('ver-result');
+
+  if (!docFile || !sigFile) {
+    res.innerHTML = '<div class="result error">❌ Debes seleccionar el documento y el archivo de firma</div>'; return;
+  }
+
+  const btn = event.target.closest('.btn');
+  setLoading(btn, true);
+
+  const fd = new FormData();
+  fd.append('documento', docFile);
+  fd.append('firma', sigFile);
+
+  try {
+    const r = await fetch('/api/verificar', { method: 'POST', body: fd });
+    const data = await r.json();
+
+    if (data.error) { res.innerHTML = `<div class="result error">❌ ${data.error}</div>`; return; }
+
+    const statusCls = data.valido ? 'success' : 'error';
+    const c = data.certificado || {};
+
+    let checksHtml = '';
+    const checkMap = {
+      integridad_documento: 'Integridad del documento',
+      certificado_cargado: 'Certificado leído correctamente',
+      certificado_vigente_al_firmar: 'Certificado vigente al momento de firma',
+      certificado_vigente_ahora: 'Certificado vigente actualmente',
+      firma_criptografica: 'Verificación criptográfica de la firma',
+      atributos_firmados_coherentes: 'Coherencia de atributos firmados',
+    };
+    for (const [k, label] of Object.entries(checkMap)) {
+      const val = data.verificaciones[k];
+      if (val === undefined) continue;
+      const ok = val === true;
+      checksHtml += `
+        <div class="check-item">
+          <div class="check-dot ${ok ? 'ok' : 'fail'}"></div>
+          <div>
+            <div style="font-weight:500;color:var(--text);">${label}</div>
+            ${typeof val === 'string' ? `<div style="color:var(--muted);font-size:11px;">${val}</div>` : ''}
+          </div>
+          <div style="margin-left:auto;font-size:11px;color:${ok ? 'var(--accent)' : 'var(--danger)'};">${ok ? '✓ OK' : '✗ FALLÓ'}</div>
+        </div>`;
+    }
+
+    const errorsHtml = data.errores.map(e => `<div style="padding:5px 0;color:var(--danger);">${e}</div>`).join('');
+    const warnsHtml  = data.advertencias.map(w => `<div style="padding:5px 0;color:var(--warn);">${w}</div>`).join('');
+
+    res.innerHTML = `
+      <div class="result ${statusCls}">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="status-pill ${data.valido ? 'valid' : 'invalid'}">${data.estado}</span>
+          <strong>${data.firmante?.cn || ''}</strong>
+          <span style="color:var(--muted);font-size:11px;">${data.fecha_firma ? new Date(data.fecha_firma).toLocaleString('es-EC') : ''}</span>
+        </div>
+      </div>
+
+      ${errorsHtml ? `<div style="margin-top:10px;">${errorsHtml}</div>` : ''}
+      ${warnsHtml  ? `<div style="margin-top:6px;">${warnsHtml}</div>`  : ''}
+
+      <hr class="divider">
+      <div class="card-title" style="margin-bottom:10px;">🔬 Verificaciones realizadas</div>
+      ${checksHtml}
+
+      ${c.titular ? `
+        <hr class="divider">
+        <div class="card-title" style="margin-bottom:10px;">🪪 Datos del firmante</div>
+        <div class="cert-grid">
+          ${field('Titular', c.titular)}
+          ${field('Organización', c.organizacion)}
+          ${field('Emisor', c.emisor)}
+          ${field('Estado cert.', c.estado, c.es_valido ? 'green' : 'red')}
+          ${field('Válido hasta', c.valido_hasta)}
+          ${field('Algoritmo', data.algoritmo)}
+        </div>
+        <div style="margin-top:10px;">
+          <div class="cert-field-label">Hash del documento verificado</div>
+          <div class="hash-display">${data.hash_documento}</div>
+        </div>` : ''}
+    `;
+  } catch(e) {
+    res.innerHTML = `<div class="result error">❌ Error: ${e.message}</div>`;
+  } finally { setLoading(btn, false); }
+}
+
+// ── Demo: Generar Certificado ──
+async function generarDemo() {
+  const btn = event.target.closest('.btn');
+  setLoading(btn, true);
+  const res = document.getElementById('demo-result');
+
+  try {
+    const r = await fetch('/api/generar-certificado-prueba', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre: document.getElementById('demo-nombre').value,
+        organizacion: document.getElementById('demo-org').value,
+        password: document.getElementById('demo-pass').value,
+      })
+    });
+    const data = await r.json();
+    if (data.error) { res.innerHTML = `<div class="result error">❌ ${data.error}</div>`; return; }
+
+    const c = data.info;
+    // Auto-download P12
+    const blob = new Blob([Uint8Array.from(atob(data.p12_base64), ch => ch.charCodeAt(0))]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'certificado_demo.p12'; a.click();
+
+    res.innerHTML = `
+      <div class="result warn">${data.mensaje}</div>
+      <div class="cert-grid" style="margin-top:12px;">
+        ${field('Titular', c.titular)}
+        ${field('Organización', c.organizacion)}
+        ${field('País', c.pais)}
+        ${field('Estado', c.estado, 'green')}
+        ${field('Válido hasta', c.valido_hasta)}
+        ${field('Contraseña', data.password, 'mono')}
+      </div>
+      <div class="result info" style="margin-top:12px;font-size:12px;">
+        💾 El archivo <strong>certificado_demo.p12</strong> se ha descargado. 
+        Úsalo en las pestañas <em>Certificado</em> y <em>Firmar</em> con la contraseña indicada.
+      </div>
+    `;
+  } catch(e) {
+    res.innerHTML = `<div class="result error">❌ ${e.message}</div>`;
+  } finally { setLoading(btn, false); }
+}
+
+async function descargarFirma(nombre) {
+  window.open('/api/descargar-firma/' + encodeURIComponent(nombre), '_blank');
+}
+
+// ── Helper ──
+function field(label, value, cls='') {
+  if (!value) return '';
+  return `
+    <div class="cert-field">
+      <div class="cert-field-label">${label}</div>
+      <div class="cert-field-value ${cls}">${value}</div>
+    </div>`;
+}
+
+// Drag & drop
+document.querySelectorAll('.dropzone').forEach(dz => {
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('over');
+    const input = dz.querySelector('input[type=file]');
+    if (input && e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      input.dispatchEvent(new Event('change'));
+    }
+  });
+});
+</script>
+</body>
+</html>
