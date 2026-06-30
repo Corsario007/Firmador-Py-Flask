@@ -669,7 +669,11 @@ async function firmarDoc() {
       res.innerHTML = `<div class="result error">❌ ${data.error}</div>`; return;
     }
 
-    const pkg = data.paquete;
+    const pkg = data.paquete_json;
+    const pdfNote = data.es_pdf
+      ? 'El sello de firma se incrustó visualmente en la última página del PDF.'
+      : 'El documento no era PDF, así que se generó un PDF-comprobante con el sello y los datos de firma.';
+
     res.innerHTML = `
       <div class="result success">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
@@ -677,16 +681,26 @@ async function firmarDoc() {
           <strong>${data.firmante}</strong>
           <span style="color:var(--muted);font-size:11px;">${new Date(data.fecha_firma).toLocaleString('es-EC')}</span>
         </div>
-        <div style="font-size:12px;color:var(--muted);">${data.mensaje}</div>
+        <div style="font-size:12px;color:var(--muted);">${data.mensaje} — ${pdfNote}</div>
       </div>
       <div class="download-area">
-        <span style="font-size:20px;">📥</span>
+        <span style="font-size:20px;">📄</span>
         <div>
-          <div style="font-weight:600;font-size:13px;">${data.archivo_firma}</div>
-          <div style="font-size:11px;color:var(--muted);">Guarda este archivo junto al documento original para verificación</div>
+          <div style="font-weight:600;font-size:13px;">${data.archivo_firmado}</div>
+          <div style="font-size:11px;color:var(--muted);">PDF firmado con sello visual de firma electrónica</div>
         </div>
-        <button class="btn btn-secondary" onclick="descargarFirma('${data.archivo_firma}')" style="margin-left:auto;">
-          Descargar .firma.json
+        <button class="btn btn-success" onclick="descargarArchivo('${data.archivo_firmado}')" style="margin-left:auto;">
+          📥 Descargar PDF Firmado
+        </button>
+      </div>
+      <div class="download-area" style="margin-top:8px;">
+        <span style="font-size:20px;">🔏</span>
+        <div>
+          <div style="font-weight:600;font-size:13px;">Datos de firma (para verificación)</div>
+          <div style="font-size:11px;color:var(--muted);">Guarda este JSON junto al documento ORIGINAL para poder verificarlo en la pestaña Verificar</div>
+        </div>
+        <button class="btn btn-secondary" onclick="descargarJSON()" style="margin-left:auto;">
+          Descargar firma.json
         </button>
       </div>
       <div class="sig-detail">
@@ -697,7 +711,7 @@ async function firmarDoc() {
       </div>
     `;
 
-    // Guardar paquete en sesión para facilitar verificación inmediata
+    // Guardar paquete en sesión para descarga del JSON de verificación
     window._lastSignPackage = pkg;
     window._lastDocFile = docFile;
 
@@ -842,8 +856,20 @@ async function generarDemo() {
   } finally { setLoading(btn, false); }
 }
 
-async function descargarFirma(nombre) {
-  window.open('/api/descargar-firma/' + encodeURIComponent(nombre), '_blank');
+async function descargarArchivo(nombre) {
+  window.open('/api/descargar/' + encodeURIComponent(nombre), '_blank');
+}
+
+function descargarJSON() {
+  if (!window._lastSignPackage) return;
+  const blob = new Blob([JSON.stringify(window._lastSignPackage, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const baseName = (window._lastDocFile?.name || 'documento').replace(/\.[^/.]+$/, '');
+  a.href = url;
+  a.download = baseName + '.firma.json';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Helper ──

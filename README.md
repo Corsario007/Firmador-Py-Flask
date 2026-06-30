@@ -34,7 +34,7 @@ pip install -r requirements.txt
 O directamente:
 
 ```bash
-pip install flask cryptography
+pip install flask cryptography pypdf reportlab
 ```
 
 ### 3. Ejecutar el servidor
@@ -66,16 +66,19 @@ http://localhost:5000
 
 ### Pestaña "Firmar" — Firmar un documento
 1. Sube tu certificado `.p12` y su contraseña
-2. Sube el documento a firmar (PDF, XML, DOCX, TXT, cualquier formato)
+2. Sube el documento a firmar (si es PDF, se firma directamente; si es otro formato como DOCX/TXT/imagen, se genera un PDF-comprobante con los datos)
 3. Elige el algoritmo (SHA-256 recomendado)
 4. Haz clic en **Firmar Documento**
-5. Descarga el archivo `.firma.json` — guárdalo junto al documento original
+5. Descarga el **PDF firmado**, que incluye:
+   - Un **sello visual de firma** (recuadro azul) incrustado en la última página, con nombre del firmante, organización, fecha, algoritmo y hash
+   - **Metadatos embebidos** en el propio PDF (`/FirmadoPor`, `/FechaFirma`, `/HashDocumento`, `/CertificadoDER`, etc.) verificables con cualquier lector de metadatos PDF
+6. Descarga también el **`.firma.json`** (botón secundario) — es el paquete de verificación criptográfica que debes conservar junto al documento **original** para poder validarlo después
 
 ### Pestaña "Verificar" — Validar una firma
-1. Sube el documento **original** (sin modificar)
+1. Sube el documento **original sin firmar** (el mismo que subiste para firmar, no el PDF firmado)
 2. Sube el archivo `.firma.json` generado al firmar
 3. Haz clic en **Verificar Firma**
-4. El sistema revisa: integridad del documento, vigencia del certificado, firma criptográfica
+4. El sistema revisa: integridad del documento, vigencia del certificado, firma criptográfica RSA/ECDSA
 
 ### Pestaña "Demo" — Certificado de prueba
 - Genera un certificado P12 temporal para probar la aplicación sin tu certificado real
