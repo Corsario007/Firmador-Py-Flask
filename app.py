@@ -18,9 +18,13 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.x509 import load_der_x509_certificate
 
 from pypdf import PdfWriter, PdfReader, Transformation
+from pypdf.generic import RectangleObject
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.units import mm
+from PIL import Image, ImageDraw, ImageFont
+
+from qrgen import qr_to_image
 
 app = Flask(__name__, static_folder="static")
 
@@ -28,6 +32,11 @@ UPLOAD_FOLDER = Path("/tmp/firmador")
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 SIGNED_FOLDER = UPLOAD_FOLDER / "firmados"
 SIGNED_FOLDER.mkdir(exist_ok=True)
+
+LOGO_PATH = Path(__file__).parent / "static" / "logo_empresa.png"
+# Base URL pública usada para construir el enlace de verificación dentro del QR.
+# Ajusta esto a tu dominio real en producción (variable de entorno recomendado).
+BASE_VERIFY_URL = os.environ.get("BASE_VERIFY_URL", "http://localhost:5000/verificar")
 
 
 # ──────────────────────────────────────────────────────────
@@ -85,57 +94,198 @@ def get_cert_info(cert: x509.Certificate) -> dict:
 
 
 # ──────────────────────────────────────────────────────────
-#  Sello visual de firma (stamp) en PDF con ReportLab
+#  Sello visual de firma (stamp) — PNG transparente con
+#  logo institucional + código QR de verificación
 # ──────────────────────────────────────────────────────────
+
+def _get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+    candidates = (
+        ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"] if bold else
+        ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+    )
+    for fp in candidates:
+        try:
+            return ImageFont.truetype(fp, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
+def _fit_text(draw: ImageDraw.ImageDraw, s: str, font, max_w: float) -> str:
+    if draw.textlength(s, font=font) <= max_w:
+        return s
+    while s and draw.textlength(s + "…", font=font) > max_w:
+        s = s[:-1]
+    return s + "…"
+
 
 def make_signature_stamp(signer_name: str, org: str, date_str: str,
                           doc_hash: str, alg: str, serial: str,
-                          emisor: str = "") -> bytes:
-    """Genera una página PDF con el sello de firma (170mm x 38mm)."""
-    buf = io.BytesIO()
-    W, H = 170 * mm, 38 * mm
-    c = rl_canvas.Canvas(buf, pagesize=(W, H))
+                          emisor: str = "", verify_url: str = "",
+                          logo_path=None, scale: int = 2) -> Image.Image:
+    """
+    Genera el sello de firma como imagen PNG (RGBA, fondo transparente).
+    Diseño compacto: logo institucional | datos del firmante | QR de verificación.
+    scale=2 produce 680×190 px — nítido a 150 dpi sin inflar el PDF.
+    """
+    W, H = 340 * scale, 95 * scale
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
 
-    # Fondo y borde
-    c.setFillColorRGB(0.95, 0.97, 1.0)
-    c.setStrokeColorRGB(0.10, 0.30, 0.70)
-    c.setLineWidth(1.5)
-    c.roundRect(1.5, 1.5, W - 3, H - 3, 6, fill=1, stroke=1)
+    pad = 6 * scale
+    border_color = (25, 70, 160, 255)
+    bg_color = (247, 250, 255, 235)
 
-    # Franja izquierda azul
-    c.setFillColorRGB(0.10, 0.30, 0.70)
-    c.roundRect(4, 4, 32, H - 8, 4, fill=1, stroke=0)
+    draw.rounded_rectangle(
+        [1, 1, W - 2, H - 2], radius=8 * scale,
+        fill=bg_color, outline=border_color, width=max(1, scale)
+    )
 
-    # Texto franja
-    c.setFillColorRGB(1, 1, 1)
-    c.setFont("Helvetica-Bold", 6)
-    c.drawCentredString(20, H - 13, "FIRMA")
-    c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(20, H / 2 - 3, "EC")
-    c.setFont("Helvetica-Bold", 5.5)
-    c.drawCentredString(20, 9, "DIGITAL")
+    x = pad
 
-    # Contenido textual
-    x = 42
-    c.setFillColorRGB(0.05, 0.05, 0.30)
-    c.setFont("Helvetica-Bold", 7.5)
-    line1 = f"Firmado digitalmente por: {signer_name}"
-    c.drawString(x, H - 11, line1[:72])
+    # ── Logo institucional: pre-escalar al tamaño real de uso ──
+    logo_box = H - 2 * pad       # cuadrado, mismo alto que el QR
+    if logo_path and Path(logo_path).exists():
+        try:
+            logo = Image.open(logo_path).convert("RGBA")
+            # Pre-reducir AL TAMAÑO DE USO antes de componer
+            ratio = min(logo_box / logo.width, logo_box / logo.height)
+            new_w = max(1, int(logo.width * ratio))
+            new_h = max(1, int(logo.height * ratio))
+            logo = logo.resize((new_w, new_h), Image.LANCZOS)
+            ly = pad + (logo_box - new_h) // 2
+            img.paste(logo, (int(x) + (logo_box - new_w) // 2, int(ly)), logo)
+            x += logo_box + pad
+        except Exception:
+            pass  # sin logo si falla
 
-    c.setFillColorRGB(0.15, 0.15, 0.15)
-    c.setFont("Helvetica", 6.2)
-    c.drawString(x, H - 20, f"Organizacion: {(org or 'N/A')[:55]}  |  Serie: {serial[:20]}")
-    c.drawString(x, H - 28, f"Fecha: {date_str}  |  Algoritmo: {alg}")
-    hash_short = doc_hash[:44] + "..." if len(doc_hash) > 44 else doc_hash
-    c.drawString(x, H - 36, f"Hash SHA-256: {hash_short}")
+    # Separador vertical
+    draw.line([(x, pad), (x, H - pad)], fill=(190, 198, 215, 255), width=max(1, scale // 2))
+    x += pad * 1.3
 
-    c.save()
-    return buf.getvalue()
+    # ── QR de verificación (a la derecha) ──
+    qr_size = H - 2 * pad
+    qr_x = W - pad  # fallback sin QR
+    if verify_url:
+        try:
+            qr_img = qr_to_image(verify_url, box_size=max(2, scale), border=1)
+            qr_img = qr_img.resize((qr_size, qr_size), Image.LANCZOS)
+            qr_x = W - pad - qr_size
+            img.paste(qr_img, (int(qr_x), int(pad)), qr_img)
+        except Exception:
+            pass
+
+    # ── Texto central ──
+    text_x     = x
+    avail_w    = max(10, qr_x - pad - text_x)
+
+    f_title = _get_font(11 * scale // 2, bold=True)
+    f_label = _get_font(9  * scale // 2, bold=True)
+    f_small = _get_font(7  * scale // 2)
+
+    ty     = pad + 1 * scale
+    r      = 4 * scale
+    draw.ellipse([text_x, ty, text_x + r * 2, ty + r * 2], fill=(25, 140, 70, 255))
+    cx, cy = text_x + r, ty + r
+    draw.line(
+        [(cx - r * 0.45, cy), (cx - r * 0.1, cy + r * 0.4), (cx + r * 0.5, cy - r * 0.4)],
+        fill=(255, 255, 255, 255), width=max(1, scale // 2), joint="curve",
+    )
+    draw.text((text_x + r * 2 + 4 * scale, ty - 1 * scale),
+               "FIRMADO DIGITALMENTE", font=f_title, fill=(20, 45, 100, 255))
+    ty += 11 * scale
+
+    line_gap = 9.5 * scale
+    draw.text((text_x, ty), _fit_text(draw, signer_name, f_label, avail_w),
+               font=f_label, fill=(15, 15, 15, 255))
+    ty += line_gap
+    draw.text((text_x, ty), _fit_text(draw, org or "N/A", f_small, avail_w),
+               font=f_small, fill=(75, 80, 95, 255))
+    ty += line_gap - 1.5 * scale
+    draw.text((text_x, ty), _fit_text(draw, f"{date_str}  ·  {alg}", f_small, avail_w),
+               font=f_small, fill=(75, 80, 95, 255))
+    ty += line_gap - 1.5 * scale
+    draw.text((text_x, ty), _fit_text(draw, f"Serie: {serial}", f_small, avail_w),
+               font=f_small, fill=(100, 105, 120, 255))
+    ty += line_gap - 1.5 * scale
+    draw.text((text_x, ty), _fit_text(draw, f"Hash: {doc_hash}", f_small, avail_w),
+               font=f_small, fill=(120, 125, 140, 255))
+
+    return img
 
 
 # ──────────────────────────────────────────────────────────
 #  Incrustar sello en PDF existente
 # ──────────────────────────────────────────────────────────
+
+def _stamp_image_to_pdf_page(stamp_img: Image.Image, width_pt: float) -> bytes:
+    """
+    Convierte imagen PIL RGBA → página PDF mínima usando pikepdf.
+    RGB → JPEG (q=80) + Alpha → FlateDecode grayscale = ~25–35 KB total.
+    """
+    import pikepdf, zlib
+
+    sw, sh   = stamp_img.size
+    height_pt = width_pt * sh / sw
+
+    # ── Comprimir canal RGB como JPEG ──
+    rgb = Image.new("RGB", stamp_img.size, (255, 255, 255))
+    rgb.paste(stamp_img.convert("RGB"))
+    jpeg_buf = io.BytesIO()
+    rgb.save(jpeg_buf, "JPEG", quality=80, optimize=True, progressive=False)
+    jpeg_bytes = jpeg_buf.getvalue()
+
+    # ── Comprimir canal Alpha como grayscale FlateDecode ──
+    alpha      = stamp_img.split()[3]           # canal alpha (L)
+    alpha_raw  = alpha.tobytes()
+    alpha_z    = zlib.compress(alpha_raw, 9)
+
+    pdf = pikepdf.Pdf.new()
+
+    # SMask (canal alpha)
+    smask = pikepdf.Stream(pdf, alpha_z)
+    smask.stream_dict.update(pikepdf.Dictionary(
+        Type            = pikepdf.Name.XObject,
+        Subtype         = pikepdf.Name.Image,
+        Width           = sw,
+        Height          = sh,
+        ColorSpace      = pikepdf.Name.DeviceGray,
+        BitsPerComponent= 8,
+        Filter          = pikepdf.Name.FlateDecode,
+    ))
+
+    # Imagen principal (JPEG + SMask)
+    xobj = pikepdf.Stream(pdf, jpeg_bytes)
+    xobj.stream_dict.update(pikepdf.Dictionary(
+        Type             = pikepdf.Name.XObject,
+        Subtype          = pikepdf.Name.Image,
+        Width            = sw,
+        Height           = sh,
+        ColorSpace       = pikepdf.Name.DeviceRGB,
+        BitsPerComponent = 8,
+        Filter           = pikepdf.Name.DCTDecode,
+        SMask            = smask,
+    ))
+
+    # Página vacía del tamaño exacto del sello
+    page_dict = pikepdf.Dictionary(
+        Type     = pikepdf.Name.Page,
+        MediaBox = pikepdf.Array([0, 0, width_pt, height_pt]),
+        Resources= pikepdf.Dictionary(
+            XObject=pikepdf.Dictionary(Im0=xobj)
+        ),
+        Contents = pikepdf.Stream(
+            pdf,
+            f"q {width_pt:.4f} 0 0 {height_pt:.4f} 0 0 cm /Im0 Do Q\n".encode()
+        ),
+    )
+    pdf.pages.append(pikepdf.Page(page_dict))
+
+    out = io.BytesIO()
+    pdf.save(out, compress_streams=True,
+             object_stream_mode=pikepdf.ObjectStreamMode.generate)
+    return out.getvalue()
+
 
 def _safe_read_pdf(pdf_bytes: bytes) -> "PdfReader":
     """
@@ -159,49 +309,121 @@ def _safe_read_pdf(pdf_bytes: bytes) -> "PdfReader":
     return PdfReader(repaired, strict=False)
 
 
-def embed_stamp_in_pdf(pdf_bytes: bytes, stamp_bytes: bytes,
+def embed_stamp_in_pdf(pdf_bytes: bytes, stamp_img: Image.Image,
                         sig_json: dict, signer_info: dict) -> bytes:
     """
-    Toma el PDF original, agrega el sello visual en la última página
-    (esquina inferior izquierda) e incrusta los metadatos de firma.
+    Incrusta el sello directamente como XObject JPEG+SMask en la última
+    página del PDF usando pikepdf.  Sin pypdf overlay — evita el bug del
+    contenido vacío y produce archivos ~40-50 KB.
     """
-    # Leer PDF original (tolerante a archivos mal formados)
-    reader = _safe_read_pdf(pdf_bytes)
-    writer = PdfWriter()
-    for page in reader.pages:
-        writer.add_page(page)
+    import pikepdf, zlib
 
-    # Leer sello
-    stamp_reader = PdfReader(io.BytesIO(stamp_bytes))
-    stamp_page   = stamp_reader.pages[0]
+    # Abrir PDF con pikepdf (tolerante a PDFs malformados)
+    try:
+        pdf = pikepdf.open(io.BytesIO(pdf_bytes))
+    except Exception:
+        # Intentar reparar via pypdf y re-abrir
+        reader = _safe_read_pdf(pdf_bytes)
+        writer = PdfWriter()
+        for p in reader.pages:
+            writer.add_page(p)
+        buf = io.BytesIO(); writer.write(buf)
+        pdf = pikepdf.open(io.BytesIO(buf.getvalue()))
 
-    # Posición: esquina inferior izquierda de la última página, con margen
-    last_page = writer.pages[-1]
-    last_page.merge_transformed_page(
-        stamp_page,
-        Transformation().translate(tx=28, ty=20),
-        expand=False,
-    )
+    page   = pdf.pages[-1]
+    page_w = float(page.mediabox[2])
 
-    # Metadatos PDF (DocInfo)
+    sw, sh        = stamp_img.size
+    stamp_w_pt    = max(130, min(220, page_w * 0.40))
+    stamp_h_pt    = stamp_w_pt * sh / sw
+    margin        = 18  # puntos PDF
+
+    # ── Comprimir imagen ──
+    # RGB como JPEG
+    rgb      = Image.new("RGB", stamp_img.size, (255, 255, 255))
+    rgb.paste(stamp_img.convert("RGB"))
+    jpeg_buf = io.BytesIO()
+    rgb.save(jpeg_buf, "JPEG", quality=80, optimize=True)
+    jpeg_bytes = jpeg_buf.getvalue()
+
+    # Alpha como FlateDecode grayscale
+    alpha_z = zlib.compress(stamp_img.split()[3].tobytes(), 9)
+
+    # ── XObjects ──
+    smask = pikepdf.Stream(pdf, alpha_z)
+    smask.stream_dict.update(pikepdf.Dictionary(
+        Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Image,
+        Width=sw, Height=sh, ColorSpace=pikepdf.Name.DeviceGray,
+        BitsPerComponent=8, Filter=pikepdf.Name.FlateDecode,
+    ))
+
+    xobj = pikepdf.Stream(pdf, jpeg_bytes)
+    xobj.stream_dict.update(pikepdf.Dictionary(
+        Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Image,
+        Width=sw, Height=sh, ColorSpace=pikepdf.Name.DeviceRGB,
+        BitsPerComponent=8, Filter=pikepdf.Name.DCTDecode,
+        SMask=smask,
+    ))
+
+    # ── Registrar XObject en Resources de la página ──
+    if "/Resources" not in page.obj:
+        page.obj["/Resources"] = pikepdf.Dictionary()
+    res = page.obj["/Resources"]
+    if "/XObject" not in res:
+        res["/XObject"] = pikepdf.Dictionary()
+    xname = "/FirmaSello"
+    res["/XObject"][xname] = xobj
+
+    # ── Content stream: dibujar el sello ──
+    # IMPORTANTE: debe ser un objeto INDIRECTO para que pikepdf lo
+    # serialice correctamente al guardar.
+    stamp_cmd = (
+        f"q "
+        f"{stamp_w_pt:.3f} 0 0 {stamp_h_pt:.3f} "
+        f"{margin:.3f} {margin:.3f} cm "
+        f"{xname} Do "
+        f"Q\n"
+    ).encode()
+
+    new_s = pdf.make_indirect(pikepdf.Stream(pdf, stamp_cmd))
+
+    existing = page.obj.get("/Contents")
+    if existing is None:
+        page.obj["/Contents"] = new_s
+    elif isinstance(existing, pikepdf.Array):
+        existing.append(new_s)
+    else:
+        # Convertir el stream existente a indirecto si no lo es
+        if not existing.is_indirect:
+            existing = pdf.make_indirect(existing)
+        page.obj["/Contents"] = pikepdf.Array([existing, new_s])
+
+    # ── Metadatos ──
     titular = signer_info.get("cn", "")
     org     = signer_info.get("org", "")
-    writer.add_metadata({
-        "/Author":   titular,
-        "/Subject":  "Documento Firmado Electrónicamente - Ecuador",
-        "/Keywords": f"firma-electronica;{sig_json.get('signature_algorithm','')};PKI;K12",
-        "/Creator":  "Firmador Electrónico K12/P12 v1.0 - Ecuador",
-        "/FirmadoPor":       titular,
-        "/FirmadoOrg":       org,
-        "/FechaFirma":       sig_json.get("signing_time", ""),
-        "/Algoritmo":        sig_json.get("signature_algorithm", ""),
-        "/HashDocumento":    sig_json.get("document_hash", ""),
-        "/FirmaBase64":      sig_json.get("signature_value", "")[:200],  # parcial en meta
-        "/CertificadoDER":   sig_json.get("signer_certificate", "")[:500],
+    try:
+        with pdf.open_metadata() as meta:
+            meta["dc:creator"]     = [titular]
+            meta["dc:description"] = (
+                f"Firmado digitalmente · {sig_json.get('signing_time','')}"
+            )
+    except Exception:
+        pass
+    pdf.docinfo.update({
+        "/Author":        titular,
+        "/Subject":       "Documento Firmado Electrónicamente - Ecuador",
+        "/Keywords":      f"firma-electronica;{sig_json.get('signature_algorithm','')};K12",
+        "/Creator":       "Firmador Electrónico K12/P12 v1.0",
+        "/FirmadoPor":    titular,
+        "/FirmadoOrg":    org,
+        "/FechaFirma":    sig_json.get("signing_time", ""),
+        "/Algoritmo":     sig_json.get("signature_algorithm", ""),
+        "/HashDocumento": sig_json.get("document_hash", ""),
     })
 
     out = io.BytesIO()
-    writer.write(out)
+    pdf.save(out, compress_streams=True,
+             object_stream_mode=pikepdf.ObjectStreamMode.generate)
     return out.getvalue()
 
 
@@ -218,11 +440,30 @@ def build_non_pdf_signed_package(doc_bytes: bytes, doc_name: str,
     # Encabezado
     c.setFillColorRGB(0.10, 0.30, 0.70)
     c.rect(0, H - 60, W, 60, fill=1, stroke=0)
+
+    # Logo institucional en el encabezado (si existe)
+    title_x = 30
+    if LOGO_PATH.exists():
+        try:
+            logo_img = Image.open(LOGO_PATH).convert("RGBA")
+            logo_h_pt = 42
+            ratio = logo_h_pt / logo_img.height
+            logo_w_pt = logo_img.width * ratio
+            from reportlab.lib.utils import ImageReader
+            logo_buf = io.BytesIO()
+            logo_img.save(logo_buf, format="PNG")
+            logo_buf.seek(0)
+            c.drawImage(ImageReader(logo_buf), 30, H - 51, width=logo_w_pt,
+                        height=logo_h_pt, mask="auto")
+            title_x = 30 + logo_w_pt + 14
+        except Exception:
+            pass
+
     c.setFillColorRGB(1, 1, 1)
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(30, H - 35, "Comprobante de Firma Electrónica")
+    c.drawString(title_x, H - 35, "Comprobante de Firma Electrónica")
     c.setFont("Helvetica", 9)
-    c.drawString(30, H - 52, "República del Ecuador — Firma Digital PKI PKCS#12")
+    c.drawString(title_x, H - 52, "República del Ecuador — Firma Digital PKI PKCS#12")
 
     # Cuerpo
     si = sig_json.get("signer_info", {})
@@ -285,17 +526,23 @@ def build_non_pdf_signed_package(doc_bytes: bytes, doc_name: str,
     # Agregar sello
     signer_name = si.get("cn", "Firmante")
     org         = si.get("org", "")
-    date_str    = sig_json.get("signing_time", "")[:19]
+    date_str    = sig_json.get("signing_time", "")[:19].replace("T", " ")
     doc_hash    = sig_json.get("document_hash", "")
     alg         = sig_json.get("signature_algorithm", "")
     serial      = si.get("serial", "")
+    verify_url  = f"{BASE_VERIFY_URL}?serial={serial}&hash={doc_hash[:16]}"
 
-    stamp_bytes = make_signature_stamp(signer_name, org, date_str, doc_hash, alg, serial)
-    stamp_reader = PdfReader(io.BytesIO(stamp_bytes))
-    stamp_page   = stamp_reader.pages[0]
+    stamp_img = make_signature_stamp(signer_name, org, date_str, doc_hash, alg, serial,
+                                     verify_url=verify_url, logo_path=str(LOGO_PATH))
     last_page = writer.pages[-1]
+    page_w = float(last_page.mediabox.width)
+    stamp_w_pt = max(130, min(230, page_w * 0.42))
+    stamp_pdf_bytes = _stamp_image_to_pdf_page(stamp_img, stamp_w_pt)
+    stamp_reader = PdfReader(io.BytesIO(stamp_pdf_bytes))
+    stamp_page   = stamp_reader.pages[0]
+    margin = 18
     last_page.merge_transformed_page(
-        stamp_page, Transformation().translate(tx=28, ty=20), expand=False
+        stamp_page, Transformation().translate(tx=margin, ty=margin), expand=False
     )
 
     out = io.BytesIO()
@@ -501,16 +748,21 @@ def firmar_documento():
         serial      = si.get("serial", "")
         emisor      = si.get("issuer", "")
 
-        # Sello visual
-        stamp_bytes = make_signature_stamp(signer_name, org, date_str,
-                                           doc_hash, alg, serial, emisor)
+        # URL de verificación incrustada en el QR del sello
+        verify_url = f"{BASE_VERIFY_URL}?serial={serial}&hash={doc_hash[:16]}"
+
+        # Sello visual: compacto, fondo transparente, logo + QR
+        stamp_img = make_signature_stamp(signer_name, org, date_str,
+                                         doc_hash, alg, serial, emisor,
+                                         verify_url=verify_url,
+                                         logo_path=str(LOGO_PATH))
 
         # Determinar si el documento es PDF
         is_pdf = (doc_bytes[:4] == b"%PDF" or doc_name.lower().endswith(".pdf"))
 
         if is_pdf:
             try:
-                signed_pdf = embed_stamp_in_pdf(doc_bytes, stamp_bytes, sig_json, si)
+                signed_pdf = embed_stamp_in_pdf(doc_bytes, stamp_img, sig_json, si)
             except Exception as embed_err:
                 # El PDF original está corrupto/mal formado y no se pudo reparar.
                 # En vez de fallar, generamos el PDF-comprobante como respaldo.

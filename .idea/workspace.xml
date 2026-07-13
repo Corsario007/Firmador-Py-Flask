@@ -4,12 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="152651ed-6028-45f0-96da-8898505a78a6" name="Changes" comment="Version 1 del firmador realizado en Python con interfaz web usando Flask">
+    <list default="true" id="152651ed-6028-45f0-96da-8898505a78a6" name="Changes" comment="Correción el documento generado con la firma debe ser un PDF firmado y está presentando un JSON">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/static/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/static/index.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -87,7 +83,15 @@
       <option name="project" value="LOCAL" />
       <updated>1782745133316</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Correción el documento generado con la firma debe ser un PDF firmado y está presentando un JSON">
+      <option name="closed" value="true" />
+      <created>1782850105702</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1782850105702</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -95,6 +99,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Version 1 del firmador realizado en Python con interfaz web usando Flask" />
-    <option name="LAST_COMMIT_MESSAGE" value="Version 1 del firmador realizado en Python con interfaz web usando Flask" />
+    <MESSAGE value="Correción el documento generado con la firma debe ser un PDF firmado y está presentando un JSON" />
+    <option name="LAST_COMMIT_MESSAGE" value="Correción el documento generado con la firma debe ser un PDF firmado y está presentando un JSON" />
   </component>
 </project>
