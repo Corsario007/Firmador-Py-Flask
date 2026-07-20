@@ -1,6 +1,18 @@
+# Firmador Electrónico K12/P12 — dependencias
+
 flask>=3.0.0
 cryptography>=41.0.0
 pypdf>=5.0.0
 pikepdf>=8.0.0
 reportlab>=4.0.0
 pillow>=10.0.0
+
+# ── Generador QR (elige UNO) ──────────────────────────────────
+# Opción A (recomendada, Windows + Linux + macOS):
+qrcode[pil]>=7.4
+
+# Opción B (alternativa ligera):
+# segno>=1.6
+
+# En Linux también funciona sin pip si tienes:
+#   sudo apt-get install libqrencode4
