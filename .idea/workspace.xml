@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="152651ed-6028-45f0-96da-8898505a78a6" name="Changes" comment="Correción para que el QR de la firma sea transparente y mas pequeño">
+    <list default="true" id="152651ed-6028-45f0-96da-8898505a78a6" name="Changes" comment="Cambio para que el complemento del QR se ejecute sre Widows y no Linux">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/qrgen.py" beforeDir="false" afterPath="$PROJECT_DIR$/qrgen.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -72,7 +71,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-245168a56dbd-c2ffad84badb-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-261.25134.203" />
+        <option value="bundled-python-sdk-6fa658e1df1a-5bd6d13a2a75-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-262.8665.369" />
       </set>
     </attachedChunks>
   </component>
@@ -108,7 +107,15 @@
       <option name="project" value="LOCAL" />
       <updated>1783960163333</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Cambio para que el complemento del QR se ejecute sre Widows y no Linux">
+      <option name="closed" value="true" />
+      <created>1784569384980</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1784569384981</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -118,6 +125,7 @@
     <MESSAGE value="Version 1 del firmador realizado en Python con interfaz web usando Flask" />
     <MESSAGE value="Correción el documento generado con la firma debe ser un PDF firmado y está presentando un JSON" />
     <MESSAGE value="Correción para que el QR de la firma sea transparente y mas pequeño" />
-    <option name="LAST_COMMIT_MESSAGE" value="Correción para que el QR de la firma sea transparente y mas pequeño" />
+    <MESSAGE value="Cambio para que el complemento del QR se ejecute sre Widows y no Linux" />
+    <option name="LAST_COMMIT_MESSAGE" value="Cambio para que el complemento del QR se ejecute sre Widows y no Linux" />
   </component>
 </project>
